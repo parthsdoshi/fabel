@@ -104,3 +104,6 @@ venv.bak/
 
 # private keys
 *.pem
+
+.*.swp
+node_modules

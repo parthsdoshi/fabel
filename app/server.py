@@ -1,63 +1,90 @@
-from os import path
+import os
 import collections
 import time
 import pickle
+import platform
+import subprocess
 
 import numpy as np
 
 import requests
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
+from flask_socketio import SocketIO
 
 from sklearn.datasets import fetch_20newsgroups
 from sklearn import metrics
 
+# to grab text from things like pdf, ppt, docx, etc
+# actually there may be a function to pass a file into tika and
+# it tells us whether or not it can parse it...
 from tika import parser
 
-BERT_SERVER = 'http://10.0.0.11:6666'
+# to talk with frontend
+import webview
+
+BERT_SERVER = 'http://199.168.72.148:6666'
 PICKLED_FILE = '20newsgroups_train_encoded'
 SAMPLE_SIZE = 10
+unique_id = 0
 
 index_to_name = None
 docs_vec = None
 
-app = Flask(__name__)
+FRONTEND_BUILD_FOLDER = os.path.normpath('frontend/build')
+
+app = Flask(__name__, static_folder=FRONTEND_BUILD_FOLDER)
+socketio = SocketIO(app)
+
+@socketio.on('openFile')
+def openFile(filepath):
+    filepath = os.path.normpath(filepath)
+    if platform.system() == "Windows":
+        subprocess.Popen(["explorer", "/select,", filepath])
+    elif platform.system() == "Darwin":
+        subprocess.Popen(["open", filepath])
+    else:
+        subprocess.Popen(["xdg-open", filepath])
+    return True
 
 def tikaParse(filepath):
     raw = parser.from_file(filepath)
-    content = raw['content']
-    return content
+    return raw
 
 def readFile(filepath):
     with open(filepath, 'r', encoding='utf-8') as f:
         content = f.read()
     return content
 
-@app.route('/', methods=['POST'])
+@app.route('/rcv', methods=['POST'])
 def receiveDownloadData():
     content = request.json
 
     if content['state'] != 'complete':
         return jsonify({"error": True})
     
-    filepath = path.normcase(path.normpath(content['filename']))
-    if not path.exists(filepath):
+    filepath = os.path.normpath(content['filename'])
+    if not os.path.exists(filepath):
         return jsonify({"error": True})
 
     mimetype = content['mime']
     print(mimetype)
 
-    content = None
-    if 'pdf' in mimetype:
-        content = tikaParse(filepath)
-    elif 'officedocument' in mimetype:
-        content = tikaParse(filepath)
-    elif 'text/html' in mimetype:
-        content = readFile(filepath)
-    elif 'text/plain' in mimetype:
-        content = readFile(filepath)
+    raw = tikaParse(filepath)
+    if raw['status'] != 200:
+        return jsonify({"error": "Unsupported content."})
 
+    content = raw['content']
     print(content)
+
+    # if 'pdf' in mimetype:
+    #     content = tikaParse(filepath)
+    # elif 'officedocument' in mimetype:
+    #     content = tikaParse(filepath)
+    # elif 'text/html' in mimetype:
+    #     content = readFile(filepath)
+    # elif 'text/plain' in mimetype:
+    #     content = readFile(filepath)
 
     if content:
         topk = 5
@@ -67,6 +94,11 @@ def receiveDownloadData():
         global index_to_name
         global docs_vec
 
+        if index_to_name is None:
+            print("Index to Name vector not properly initialized.")
+        if docs_vec is None:
+            print("Docs Vector not properly initialized.")
+
         score = np.sum(enc * docs_vec, axis=1) / np.linalg.norm(docs_vec, axis=1)
         topk_idx = np.argsort(score)[::-1][:topk]
 
@@ -75,17 +107,39 @@ def receiveDownloadData():
         for i, idx in enumerate(topk_idx[:5]):
             name = index_to_name[idx]
             print(f'Score: {sorted_score[i]}\t\tPred: {name}')
+            names.append(name)
+
+    global unique_id
+    file_dict = {
+            'id': unique_id,
+            'name': os.path.basename(filepath),
+            'path': filepath,
+            'tags': names
+            }
+    unique_id += 1
+
+    socketio.emit('newFile', file_dict)
 
     return jsonify({"error": False})
 
-if __name__ == '__main__':
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    if path == "":
+        return send_from_directory(FRONTEND_BUILD_FOLDER, 'index.html')
+    elif os.path.exists(os.path.join(FRONTEND_BUILD_FOLDER, path)):
+        return send_from_directory(FRONTEND_BUILD_FOLDER, path)
+    else:
+        return send_from_directory(FRONTEND_BUILD_FOLDER, 'index.html')
+
+def main():
     newsgroups_train = fetch_20newsgroups(subset='train',
                                           remove=('headers', 'footers', 'quotes'))
     newsgroups_test = fetch_20newsgroups(subset='test',
                                          remove=('headers', 'footers', 'quotes'))
 
     tags_encodes = {}
-    if not path.exists(PICKLED_FILE):
+    if not os.path.exists(PICKLED_FILE):
 
         NUM_TAGS = len(newsgroups_train.target_names)
 
@@ -105,7 +159,7 @@ if __name__ == '__main__':
 
         for key in tags_data:
             val = tags_data[key]
-            r = requests.post(BERT_SERVER, json={"doc": val})
+            r = requests.post(BERT_SERVER, json={"doc": val, "sample_size": SAMPLE_SIZE})
             tags_encodes[key] = r.json()['features']
             print(r.json()['features'])
 
@@ -126,6 +180,7 @@ if __name__ == '__main__':
 
     tags_encodes = collections.OrderedDict(tags_encodes)
 
+    global index_to_name
     index_to_name = {}
 
     all_docs = []
@@ -133,6 +188,7 @@ if __name__ == '__main__':
         all_docs.append(v)
         index_to_name[i] = k
 
+    global docs_vec
     docs_vec = np.array(all_docs)
 
     # topk = 10
@@ -178,4 +234,9 @@ if __name__ == '__main__':
     # with open("scores", 'wb') as handle:
     #     pickle.dump(scores, handle)
 
-    app.run(port=4994, debug=True)
+
+    # app.run(port=4994, debug=False, threaded=True)
+    socketio.run(app, port=4994, debug=False)
+
+if __name__ == '__main__':
+    main()

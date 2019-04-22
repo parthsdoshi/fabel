@@ -23,7 +23,7 @@ chrome.downloads.onChanged.addListener((downloadDelta) => {
             chrome.downloads.search(query, (downloadItemArray) => {
                 downloadItem = downloadItemArray[0]
                 console.log(downloadItem)
-                postData(`http://localhost:4994`, downloadItem)
+                postData(`http://localhost:4994/rcv`, downloadItem)
                 .then(data => console.log(JSON.stringify(data))) // JSON-string from `response.json()` call
                 .catch(error => console.error(error));
             })
