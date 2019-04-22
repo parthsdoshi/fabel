@@ -38,7 +38,7 @@ def receiveDocument():
     content = request.json
     # content[doc] should just be a string
     sentences = sent_tokenize(content['doc'])
-    random.sample(sentences, min(len(sentences), 100))
+    sentences = random.sample(sentences, min(len(sentences), 100))
 
     cleaned_sentences = clean_sentences(sentences)
 

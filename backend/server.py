@@ -8,7 +8,7 @@ from sklearn.datasets import fetch_20newsgroups
 
 from tika import parser
 
-BERT_SERVER = 'http://127.0.0.1:6666'
+BERT_SERVER = 'http://10.0.0.11:6666'
 
 app = Flask(__name__)
 
