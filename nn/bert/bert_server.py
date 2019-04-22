@@ -25,7 +25,7 @@ layer_indices = [-2]
 TPU = False
 TPU_ADDRESS = None
 TPU_CORES = 8
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 SEQ_LENGTH = 512
 
 tokenizer = None
@@ -38,7 +38,7 @@ def receiveDocument():
     content = request.json
     # content[doc] should just be a string
     sentences = sent_tokenize(content['doc'])
-    sentences = random.sample(sentences, min(len(sentences), 100))
+    sentences = random.sample(sentences, min(len(sentences), content['sample_size']))
 
     cleaned_sentences = clean_sentences(sentences)
 
@@ -364,4 +364,4 @@ def load_bert():
 
 if __name__ == '__main__':
     load_bert()
-    app.run(port=6666)
+    app.run(host='0.0.0.0', port=6666) 
