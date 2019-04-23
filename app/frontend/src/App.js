@@ -95,7 +95,7 @@ class App extends React.Component {
         console.log(fileId)
         console.log(tag)
         if (window.socket) {
-            let file = {...this.state.files[fileId], tags: this.state.files[fileId].filter(e => e != tag)}
+            let file = {...this.state.files[fileId], tags: this.state.files[fileId].tags.filter(e => e != tag)}
             let files = {...this.state.files}
             files[file.id] = file
             this.setState({
