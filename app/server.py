@@ -37,7 +37,7 @@ app = Flask(__name__, static_folder=FRONTEND_BUILD_FOLDER)
 socketio = SocketIO(app)
 
 @socketio.on('getAllFiles')
-def getAllFiles():
+def get_all_files():
     with shelve.open(DB_FILE) as db:
         id_to_file = db['id_to_file']
 
@@ -45,12 +45,12 @@ def getAllFiles():
         for k, v in id_to_file.items():
             files.append(v)
 
-        return {'payload': db['files'], 'error': 0, 'error_str': 'Success'}
+        return {'payload': files, 'error': 0, 'error_str': 'Success'}
 
-    return {'payload': [], 'error': -1, 'error_str': 'Could not open DB'}
+    return {'error': -1, 'error_str': 'Could not open DB'}
 
 @socketio.on('openFile')
-def openFile(filepath):
+def open_file(filepath):
     filepath = os.path.normpath(filepath)
     filedir = os.path.dirname(filepath)
     if platform.system() == "Windows":
@@ -61,11 +61,11 @@ def openFile(filepath):
         subprocess.Popen(["xdg-open", filedir])
     return True
 
-def tikaParse(filepath):
+def tika_parse(filepath):
     raw = parser.from_file(filepath)
     return raw
 
-def readFile(filepath):
+def read_file(filepath):
     with open(filepath, 'r', encoding='utf-8') as f:
         content = f.read()
     return content
@@ -83,7 +83,7 @@ def getEncoding(filepath):
     return enc
 
 @app.route('/rcv', methods=['POST'])
-def receiveDownloadData():
+def receive_download_data():
     content = request.json
 
     if content['state'] != 'complete':
@@ -97,6 +97,7 @@ def receiveDownloadData():
     logging.debug(mimetype)
 
     enc = getEncoding(filepath)
+
     topk = 5
     index_to_name = None
     docs_vec = None
@@ -133,8 +134,6 @@ def receiveDownloadData():
             }
 
     with shelve.open(DB_FILE) as db:
-        db['files'].append(file_dict)
-        file_dict['encoding'] = enc
         db['id_to_file'][unique_id] = file_dict
 
     socketio.emit('newFile', file_dict)

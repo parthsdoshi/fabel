@@ -8,7 +8,7 @@ class App extends React.Component {
     super(props)
 
     this.state = {
-      files: []
+      files: [{'unique_id': 0, 'tags': ['test', 'test2'], 'date': Date.now(), 'path': 'test/test/test', 'name': 'test'}]
     }
   }
 
@@ -66,12 +66,25 @@ class App extends React.Component {
                   <td>{file.name}</td>
                   <td>{file.path}</td>
                   <td>
-                    <div className='tags are-small'>
+                    <div className='field is-grouped is-grouped-multiline'>
                       {file.tags.map((tag) => {
                         return (
-                            <span className='tag is-success'>{tag}</span>
+                          <div className='control'>
+                            <div className='tags are-small has-addons'>
+                              <span className='tag is-success'>{tag}</span>
+                              <a onClick={() => {this.deleteTag(file.id, tag)}} className='tag is-delete'></a>
+                            </div>
+                          </div>
                         )
                       })}
+                      <div className='control'>
+                        <a class="button is-small">
+                          <span class="icon is-small">
+                            <i class="fas fa-plus"></i>
+                          </span>
+                          {/* <span>GitHub</span> */}
+                        </a>
+                      </div>
                     </div>
                   </td>
                   {/* <td>{file.suggested_tags}</td> */}
