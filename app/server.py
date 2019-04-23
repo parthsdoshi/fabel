@@ -5,6 +5,7 @@ import pickle
 import platform
 import subprocess
 import shelve
+import logging
 from datetime import datetime
 
 import numpy as np
@@ -36,6 +37,7 @@ DB_FILE = 'db'
 app = Flask(__name__, static_folder=FRONTEND_BUILD_FOLDER)
 socketio = SocketIO(app)
 
+
 @socketio.on('getAllFiles')
 def get_all_files():
     with shelve.open(DB_FILE) as db:
@@ -49,6 +51,7 @@ def get_all_files():
 
     return {'error': -1, 'error_str': 'Could not open DB'}
 
+
 @socketio.on('openFile')
 def open_file(filepath):
     filepath = os.path.normpath(filepath)
@@ -61,14 +64,17 @@ def open_file(filepath):
         subprocess.Popen(["xdg-open", filedir])
     return True
 
-def tika_parse(filepath):
+
+def tikaParse(filepath):
     raw = parser.from_file(filepath)
     return raw
 
-def read_file(filepath):
+
+def readFile(filepath):
     with open(filepath, 'r', encoding='utf-8') as f:
         content = f.read()
     return content
+
 
 def getEncoding(filepath):
     raw = tikaParse(filepath)
@@ -77,10 +83,12 @@ def getEncoding(filepath):
 
     content = raw['content']
     logging.debug(content)
-    r = requests.post(BERT_SERVER, json={"doc": content, "sample_size": SAMPLE_SIZE})
+    r = requests.post(BERT_SERVER, json={
+                      "doc": content, "sample_size": SAMPLE_SIZE})
     enc = r.json()['features']
 
     return enc
+
 
 @app.route('/rcv', methods=['POST'])
 def receive_download_data():
@@ -88,7 +96,7 @@ def receive_download_data():
 
     if content['state'] != 'complete':
         return jsonify({"error": True})
-    
+
     filepath = os.path.normpath(content['filename'])
     if not os.path.exists(filepath):
         return jsonify({"error": True})
@@ -139,33 +147,45 @@ def receive_download_data():
     socketio.emit('newFile', file_dict)
 
     return jsonify({"error": False})
-'''
+
+
 @socketio.on('addTag')
 def add_tag(unique_id, tag_name):
-    with shelve.open('')
-    #TODO check tag_name doesn't already exist
-    
+    filepath = None
+    with shelve.open(DB_FILE) as db:
+        # Check name doesn't exist
+        if tag_name in db['tags'].keys():
+            return {"error": -1, "error_str": "Tag already exists!"}
+        file_dict = db['id_to_file'][unique_id]
+        filepath = file_dict['path']
 
-    with shelve.open('tags') as db:
-        db[tag_name] = {"name": enc, "num_docs": 1} 
-'''
-'''
+    if filepath == None:
+        return {"error": -1, "error_str": "Could not retrieve file."}
+    
+    enc = getEncoding(filepath)
+
+    new_tag = { "enc": enc, "num_docs": 1 }
+    with shelve.open(DB_FILE) as db:
+        db['tags'][tag_name] = new_tag
+
 @socketio.on('updateTag')
 def update_tag(unique_id, tag_name):
+    filepath = None
     with shelve.open(DB_FILE) as db:
-        db
-   # get file content
-    r = requests.post(BERT_SERVER, json={"doc": content, "sample_size": SAMPLE_SIZE})
-    enc = r.json()['features']
+        file_dict = db['id_to_file'][unique_id]
+        filepath = file_dict['path']
 
-    if index_to_name is None:
-        print("Index to Name vector not properly initialized.")
+    if filepath == None:
+        return {"error": -1, "error_str": "Could not retrieve file."}
     
-    with shelve.open('tags') as db:
-        oldEnc, num_docs = db[tag_name]
+    enc = getEncoding(filepath)
+
+    with shelve.open(DB_FILE) as db:
+        oldEnc, num_docs = db['tags'][tag_name]
+        # Mean with previous encoding
         newEnc = (num_docs/(num_docs+1)) * oldEnc + (1/(num_docs+1)) * enc
-        db[tag_name]= {"name": newEnc, "num_docs": num_docs+1} 
-'''
+        db['tags'][tag_name]= {"name": newEnc, "num_docs": num_docs+1}
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
