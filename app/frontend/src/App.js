@@ -16,10 +16,17 @@ class App extends React.Component {
     let socket = io()
     socket.on('connect', () => {
       console.log('connected')
-      window.socket = socket
-      socket.on('newFile', (file) => {
+
+      this.socket = socket
+
+      socket.emit('getAllFiles', (files) => {
         this.setState({
-          files: [file].concat(this.state.files)
+          files: files
+        })
+        socket.on('newFile', (file) => {
+          this.setState({
+            files: [file].concat(this.state.files)
+          })
         })
       })
 

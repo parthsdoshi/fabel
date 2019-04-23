@@ -4,6 +4,8 @@ import time
 import pickle
 import platform
 import subprocess
+import shelve
+from datetime import datetime
 
 import numpy as np
 
@@ -26,15 +28,26 @@ import webview
 BERT_SERVER = 'http://199.168.72.148:6666'
 PICKLED_FILE = '20newsgroups_train_encoded'
 SAMPLE_SIZE = 10
-unique_id = 0
-
-index_to_name = None
-docs_vec = None
 
 FRONTEND_BUILD_FOLDER = os.path.normpath('frontend/build')
 
+DB_FILE = 'db'
+
 app = Flask(__name__, static_folder=FRONTEND_BUILD_FOLDER)
 socketio = SocketIO(app)
+
+@socketio.on('getAllFiles')
+def getAllFiles():
+    with shelve.open(DB_FILE) as db:
+        id_to_file = db['id_to_file']
+
+        files = []
+        for k, v in id_to_file.items():
+            files.append(v)
+
+        return {'payload': db['files'], 'error': 0, 'error_str': 'Success'}
+
+    return {'payload': [], 'error': -1, 'error_str': 'Could not open DB'}
 
 @socketio.on('openFile')
 def openFile(filepath):
@@ -69,55 +82,57 @@ def receiveDownloadData():
         return jsonify({"error": True})
 
     mimetype = content['mime']
-    print(mimetype)
+    logging.debug(mimetype)
 
     raw = tikaParse(filepath)
-    if raw['status'] != 200:
+    if raw['status'] != 200 or not raw['content']:
         return jsonify({"error": "Unsupported content."})
 
     content = raw['content']
-    print(content)
+    logging.debug(content)
 
-    # if 'pdf' in mimetype:
-    #     content = tikaParse(filepath)
-    # elif 'officedocument' in mimetype:
-    #     content = tikaParse(filepath)
-    # elif 'text/html' in mimetype:
-    #     content = readFile(filepath)
-    # elif 'text/plain' in mimetype:
-    #     content = readFile(filepath)
+    topk = 5
+    r = requests.post(BERT_SERVER, json={"doc": content, "sample_size": SAMPLE_SIZE})
+    enc = r.json()['features']
 
-    if content:
-        topk = 5
-        r = requests.post(BERT_SERVER, json={"doc": content, "sample_size": SAMPLE_SIZE})
-        enc = r.json()['features']
+    index_to_name = None
+    docs_vec = None
+    with shelve.open(DB_FILE) as db:
+        index_to_name = db['index_to_name']
+        docs_vec = db['docs_vec']
 
-        global index_to_name
-        global docs_vec
+    if index_to_name is None:
+        logging.error("Index to Name vector not properly initialized.")
+    if docs_vec is None:
+        logging.error("Docs Vector not properly initialized.")
 
-        if index_to_name is None:
-            print("Index to Name vector not properly initialized.")
-        if docs_vec is None:
-            print("Docs Vector not properly initialized.")
+    score = np.sum(enc * docs_vec, axis=1) / np.linalg.norm(docs_vec, axis=1)
+    topk_idx = np.argsort(score)[::-1][:topk]
 
-        score = np.sum(enc * docs_vec, axis=1) / np.linalg.norm(docs_vec, axis=1)
-        topk_idx = np.argsort(score)[::-1][:topk]
+    names = []
+    sorted_score = np.sort(score)[::-1]
+    for i, idx in enumerate(topk_idx[:5]):
+        name = index_to_name[idx]
+        logging.info(f'Score: {sorted_score[i]}\t\tPred: {name}')
+        names.append(name)
 
-        names = []
-        sorted_score = np.sort(score)[::-1]
-        for i, idx in enumerate(topk_idx[:5]):
-            name = index_to_name[idx]
-            print(f'Score: {sorted_score[i]}\t\tPred: {name}')
-            names.append(name)
+    unique_id = -1
+    with shelve.open(DB_FILE) as db:
+        unique_id = db['unique_id']
+        db['unique_id'] += 1
 
-    global unique_id
     file_dict = {
             'id': unique_id,
             'name': os.path.basename(filepath),
             'path': filepath,
-            'tags': names
+            'tags': names,
+            'timestamp': str(datetime.utcnow())
             }
-    unique_id += 1
+
+    with shelve.open(DB_FILE) as db:
+        db['files'].append(file_dict)
+        file_dict['encoding'] = enc
+        db['id_to_file'][unique_id] = file_dict
 
     socketio.emit('newFile', file_dict)
 
@@ -134,108 +149,30 @@ def serve(path):
         return send_from_directory(FRONTEND_BUILD_FOLDER, 'index.html')
 
 def main():
-    newsgroups_train = fetch_20newsgroups(subset='train',
-                                          remove=('headers', 'footers', 'quotes'))
-    newsgroups_test = fetch_20newsgroups(subset='test',
-                                         remove=('headers', 'footers', 'quotes'))
+    with shelve.open(DB_FILE) as db:
+        db['unique_id'] = 0
+        db['id_to_file'] = collections.OrderedDict()
+        db['tags'] = {}
 
     tags_encodes = {}
-    if not os.path.exists(PICKLED_FILE):
-
-        NUM_TAGS = len(newsgroups_train.target_names)
-
-        # group tags
-        tags_data = {}
-        for name in newsgroups_train.target_names:
-            tags_data[name] = []
-        for i, doc in enumerate(newsgroups_train.data):
-            label = newsgroups_train.target[i]
-            name = newsgroups_train.target_names[label]
-            tags_data[name].append(doc)
-
-        # Combine docs
-        for key in tags_data:
-            val = tags_data[key]
-            tags_data[key] = '. '.join(val)
-
-        for key in tags_data:
-            val = tags_data[key]
-            r = requests.post(BERT_SERVER, json={"doc": val, "sample_size": SAMPLE_SIZE})
-            tags_encodes[key] = r.json()['features']
-            print(r.json()['features'])
-
-        with open(PICKLED_FILE, 'wb') as handle:
-            pickle.dump(tags_encodes, handle)
-    else:
-        with open(PICKLED_FILE, 'rb') as handle:
-            tags_encodes = pickle.load(handle)
+    with open(PICKLED_FILE, 'rb') as handle:
+        tags_encodes = pickle.load(handle)
 
     name_to_label = collections.OrderedDict()
     for i, name in enumerate(newsgroups_train.target_names):
         name_to_label[name] = i
 
-    # num_tags_encodes = {}
-    # for k, v in tags_encodes.items():
-    #     label = name_to_label[k]
-    #     num_tags_encodes[label] = v
-
     tags_encodes = collections.OrderedDict(tags_encodes)
 
-    global index_to_name
-    index_to_name = {}
+    with shelve.open(DB_FILE) as db:
+        db['index_to_name'] = {}
 
-    all_docs = []
-    for i, (k, v) in enumerate(tags_encodes.items()):
-        all_docs.append(v)
-        index_to_name[i] = k
+        all_docs = []
+        for i, (k, v) in enumerate(tags_encodes.items()):
+            all_docs.append(v)
+            index_to_name[i] = k
 
-    global docs_vec
-    docs_vec = np.array(all_docs)
-
-    # topk = 10
-    # predictions = []
-    # scores = []
-    # for i, doc in enumerate(newsgroups_test.data):
-    #     label = newsgroups_test.target[i]
-    #     name = newsgroups_test.target_names[label]
-    #     r = requests.post(BERT_SERVER, json={"doc": doc, "sample_size": SAMPLE_SIZE})
-    #     enc = np.array(r.json()['features'])
-
-    #     # is NaN
-    #     if np.isnan(enc).any():
-    #         scores.append(np.zeros((len(newsgroups_test.target_names), 1)))
-    #         predictions.append([0] * topk)
-    #         print('Found NaN')
-    #         continue
-
-    #     score = np.sum(enc * docs_vec, axis=1) / np.linalg.norm(docs_vec, axis=1)
-    #     scores.append(score)
-
-    #     topk_idx = np.argsort(score)[::-1][:topk]
-    #     predictions.append(topk_idx)
-
-    #     if i % 1 == 0:
-    #         print(f'{i}/{len(newsgroups_test.data)}')
-    #         print(f'Correct: {name}')
-
-    #         names = []
-    #         sorted_score = np.sort(score)[::-1]
-    #         for i, idx in enumerate(topk_idx[:5]):
-    #             name = index_to_name[idx]
-    #             print(f'Score: {sorted_score[i]}\t\tPred: {name}')
-
-    #         print(f'Document: {doc[:100]}\n')
-
-    # f1_score = metrics.f1_score(newsgroups_test.target, pred, average='macro')
-    # print(f1_score)
-
-    # with open("predictions", 'wb') as handle:
-    #     pickle.dump(predictions, handle)
-
-    # with open("scores", 'wb') as handle:
-    #     pickle.dump(scores, handle)
-
-
+        db['docs_vec'] = np.array(all_docs)
     # app.run(port=4994, debug=False, threaded=True)
     socketio.run(app, port=4994, debug=False)
 

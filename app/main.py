@@ -6,8 +6,6 @@ import requests
 from requests import exceptions as httpE
 
 import webview
-# use chrome renderer instead of IE
-webview.gui = 'cef'
 
 from server import main
 
@@ -29,4 +27,6 @@ if __name__ == '__main__':
             print(f"Tries left: {tries}")
         sleep(.3)
 
-    webview.create_window('Fabel', 'http://localhost:4994', debug=True)
+    # use chrome renderer instead of IE
+    webview.gui = 'cef'
+    webview.create_window('Fabel', 'http://localhost:4994')
