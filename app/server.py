@@ -70,6 +70,18 @@ def readFile(filepath):
         content = f.read()
     return content
 
+def getEncoding(filepath):
+    raw = tikaParse(filepath)
+    if raw['status'] != 200 or not raw['content']:
+        return jsonify({"error": "Unsupported content."})
+
+    content = raw['content']
+    logging.debug(content)
+    r = requests.post(BERT_SERVER, json={"doc": content, "sample_size": SAMPLE_SIZE})
+    enc = r.json()['features']
+
+    return enc
+
 @app.route('/rcv', methods=['POST'])
 def receiveDownloadData():
     content = request.json
@@ -84,17 +96,8 @@ def receiveDownloadData():
     mimetype = content['mime']
     logging.debug(mimetype)
 
-    raw = tikaParse(filepath)
-    if raw['status'] != 200 or not raw['content']:
-        return jsonify({"error": "Unsupported content."})
-
-    content = raw['content']
-    logging.debug(content)
-
+    enc = getEncoding(filepath)
     topk = 5
-    r = requests.post(BERT_SERVER, json={"doc": content, "sample_size": SAMPLE_SIZE})
-    enc = r.json()['features']
-
     index_to_name = None
     docs_vec = None
     with shelve.open(DB_FILE) as db:
@@ -137,7 +140,33 @@ def receiveDownloadData():
     socketio.emit('newFile', file_dict)
 
     return jsonify({"error": False})
+'''
+@socketio.on('addTag')
+def add_tag(unique_id, tag_name):
+    with shelve.open('')
+    #TODO check tag_name doesn't already exist
+    
 
+    with shelve.open('tags') as db:
+        db[tag_name] = {"name": enc, "num_docs": 1} 
+'''
+'''
+@socketio.on('updateTag')
+def update_tag(unique_id, tag_name):
+    with shelve.open(DB_FILE) as db:
+        db
+   # get file content
+    r = requests.post(BERT_SERVER, json={"doc": content, "sample_size": SAMPLE_SIZE})
+    enc = r.json()['features']
+
+    if index_to_name is None:
+        print("Index to Name vector not properly initialized.")
+    
+    with shelve.open('tags') as db:
+        oldEnc, num_docs = db[tag_name]
+        newEnc = (num_docs/(num_docs+1)) * oldEnc + (1/(num_docs+1)) * enc
+        db[tag_name]= {"name": newEnc, "num_docs": num_docs+1} 
+'''
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
