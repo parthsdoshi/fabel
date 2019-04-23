@@ -132,13 +132,15 @@ class App extends React.Component {
     render() {
         let sortedKeys = []
         for (let key in this.state.files) {
-            sortedKeys.push(key)
+            sortedKeys.push(parseInt(key))
         }
-        sortedKeys.sort()
-        sortedKeys.reverse()
+        sortedKeys.sort(function(a, b){return a-b})
+        sortedKeys = sortedKeys.reverse()
 
         let files = []
-        for (let key in sortedKeys) {
+        for (let i = 0; i < sortedKeys.length; i++) {
+            let key = sortedKeys[i]
+            key = key.toString()
             let value = this.state.files[key]
             files.push(value)
         }

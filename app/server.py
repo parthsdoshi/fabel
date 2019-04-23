@@ -68,11 +68,21 @@ def open_file(filepath):
         subprocess.Popen(["open", filedir])
     else:
         subprocess.Popen(["xdg-open", filedir])
-    return {'payload': True, 'error': 0, 'error_str': 'Successfully opened file."}
+    return {'payload': True, 'error': 0, 'error_str': 'Successfully opened file.'}
 
 
 def tikaParse(filepath):
-    raw = parser.from_file(filepath)
+    try:
+        raw = parser.from_file(filepath)
+        print(raw['content'][:500])
+    except UnicodeEncodeError as e:
+        #TODO this is sus af
+        raw = {
+            "status": 200,
+            "content": readFile(filepath)
+        }
+        return raw
+
     return raw
 
 
@@ -90,7 +100,7 @@ def getEncoding(filepath):
     r = requests.post(BERT_SERVER, json={
                       "doc": content, "sample_size": SAMPLE_SIZE})
     enc = r.json()['features']
-
+    logging.info("Encoding: "+str(enc[:20]))
     return enc
 
 
@@ -132,7 +142,7 @@ def receive_download_data():
     socketio.emit('newFile', file_dict)
     enc = getEncoding(filepath)
 
-    topk = 5
+    topk = 2 
     docs_names = []
     docs_vec = []
     with shelve.open(DB_FILE) as db:
@@ -162,12 +172,15 @@ def receive_download_data():
         name = docs_names[idx]
         logging.info(f'Score: {score[idx]}\t\tPred: {name}')
         names.append(name)
+        update_tag_encoding(name, enc)
 
     #TODO fix this shit
     # Update names in the db
     file_dict['tags'] = names 
     with shelve.open(DB_FILE) as db:
-        db['id_to_file'][unique_id] = file_dict
+        id_to_file = db['id_to_file']
+        id_to_file[unique_id] = file_dict
+        db['id_to_file'] = id_to_file 
 
     socketio.emit('newFile', file_dict)
 
@@ -179,26 +192,38 @@ def add_tag(unique_id, tag_name):
     logging.debug(f'unique_id: {unique_id} \t tag_name: {tag_name}')
     filepath = None
     file_dict = None
+    isNewTag = True
     with shelve.open(DB_FILE) as db:
-        # Check name doesn't exist
-        if tag_name in db['tags'].keys():
-            return {"error": -1, "error_str": "Tag already exists!"}
         file_dict = db['id_to_file'][unique_id]
         filepath = file_dict['path']
+        # Check tag not already added
+        if tag_name in file_dict['tags']:
+            return {"error": -1, "error_str": "Tag already added!"}
+        # Check tag doesn't exist in encoding list
+        if tag_name in db['tags'].keys():
+            # oldEnc, num_docs = db['tags'][tag_name].values()
+            isNewTag = False
 
     # err if file_dict None
-    if filepath is None:
+    if filepath is None or file_dict is None:
         return {"error": -1, "error_str": "Could not retrieve file.", "payload": file_dict}
     
     enc = getEncoding(filepath)
+    if isNewTag:
+        #TODO change to encoding
+        new_tag = { "enc": enc, "num_docs": 1 }
+        with shelve.open(DB_FILE) as db:
+            tags = db['tags']
+            tags[tag_name] = new_tag
+            db['tags'] = tags
+            logging.info('New tag: ' + tag_name)
+    else:
+        # Mean with previous encoding
+        update_tag_encoding(tag_name, enc)
+        
 
-    #TODO change to encoding
-    new_tag = { "enc": enc, "num_docs": 1 }
     with shelve.open(DB_FILE) as db:
-        tags = db['tags']
-        tags[tag_name] = new_tag
-        db['tags'] = tags
-        logging.info('New tag: ' + tag_name)
+        # Add tag
         id_to_file = db['id_to_file']
         file_dict = id_to_file[unique_id]
         file_dict['tags'].append(tag_name)
@@ -206,23 +231,71 @@ def add_tag(unique_id, tag_name):
 
     return {"error": 0, "error_str": "Success adding tag.", "payload": file_dict}
 
-@socketio.on('updateTag')
-def update_tag(unique_id, tag_name):
+@socketio.on('removeTag')
+def remove_tag(unique_id, tag_name):
+    logging.debug(f'unique_id: {unique_id} \t tag_name: {tag_name}')
     filepath = None
+    file_dict = None
     with shelve.open(DB_FILE) as db:
         file_dict = db['id_to_file'][unique_id]
         filepath = file_dict['path']
+        # Check tag not already added
+        if tag_name not in file_dict['tags']:
+            return {"error": -1, "error_str":  "Tag: <" + tag_name + "> wasn't in list.", "payload": file_dict}
+        # Check tag exists in the encoding list
+        if tag_name in db['tags'].keys():
+            oldEnc, num_docs = db['tags'][tag_name].values()
+        else:
+           return {"error": -1, "error_str":  "Tag: <" + tag_name + "> doesn't exist!", "payload": file_dict}
 
-    if filepath == None:
-        return {"error": -1, "error_str": "Could not retrieve file."}
+    # err if file_dict None
+    if filepath is None or file_dict is None:
+        return {"error": -1, "error_str": "Could not retrieve file.", "payload": file_dict}
     
-    enc = getEncoding(filepath)
+    # Remove all tags if last one
+    if num_docs == 1:
+        with shelve.open(DB_FILE) as db:
+            tags = db['tags']
+            logging.info('Deleted doc from tag: ' + tag_name)
+            tags.pop(tag_name)
+            db['tags'] = tags
+    else:
+        doc_enc = getEncoding(filepath)
+        # Undo Mean with previous encoding
+        # TODO this math is suspicious
+        prev_enc = (oldEnc - (1 / num_docs) * np.array(doc_enc)) * (num_docs/(num_docs-1))
+        with shelve.open(DB_FILE) as db:
+            tags = db['tags']
+            logging.info('Deleted doc from tag: ' + tag_name)
+            tags[tag_name] = {"enc": prev_enc, "num_docs": num_docs-1}
+            db['tags'] = tags
 
+    # remove tag
     with shelve.open(DB_FILE) as db:
-        oldEnc, num_docs = db['tags'][tag_name]
-        # Mean with previous encoding
-        newEnc = (num_docs/(num_docs+1)) * oldEnc + (1/(num_docs+1)) * enc
-        db['tags'][tag_name]= {"name": newEnc, "num_docs": num_docs+1}
+        id_to_file = db['id_to_file']
+        file_dict = id_to_file[unique_id]
+        file_dict['tags'].remove(tag_name)
+        db['id_to_file'] = id_to_file
+
+    socketio.emit('newFile', file_dict) 
+    return {"error": 0, "error_str": "Success removing tag.", "payload": file_dict}
+
+# returns True on success
+def update_tag_encoding(tag_name, enc):
+    with shelve.open(DB_FILE) as db:
+        if tag_name in db['tags'].keys():
+            oldEnc, num_docs = db['tags'][tag_name].values()
+        else:
+            return False
+
+    newEnc = (num_docs/(num_docs+1)) * np.array(oldEnc) + (1/(num_docs+1)) * np.array(enc)
+    with shelve.open(DB_FILE) as db:
+        tags = db['tags']
+        logging.info('Updated tag: ' + tag_name)
+        tags[tag_name] = {"enc": newEnc, "num_docs": num_docs+1}
+        db['tags'] = tags
+
+    return True
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')

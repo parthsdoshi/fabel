@@ -29,4 +29,4 @@ if __name__ == '__main__':
 
     # use chrome renderer instead of IE
     webview.gui = 'cef'
-    webview.create_window('Fabel', 'http://localhost:4994')
+    webview.create_window('Fabel', 'http://localhost:4994', debug=True)
