@@ -75,7 +75,6 @@ def readFile(filepath):
         content = f.read()
     return content
 
-
 def getEncoding(filepath):
     raw = tikaParse(filepath)
     if raw['status'] != 200 or not raw['content']:
@@ -159,7 +158,7 @@ def add_tag(unique_id, tag_name):
         file_dict = db['id_to_file'][unique_id]
         filepath = file_dict['path']
 
-    if filepath == None:
+    if filepath is None:
         return {"error": -1, "error_str": "Could not retrieve file."}
     
     enc = getEncoding(filepath)
