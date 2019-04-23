@@ -23,9 +23,9 @@ from sklearn import metrics
 # actually there may be a function to pass a file into tika and
 # it tells us whether or not it can parse it...
 from tika import parser
+from tika import detector
 
-# to talk with frontend
-import webview
+import html2text
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
@@ -92,9 +92,18 @@ def readFile(filepath):
     return content
 
 def getEncoding(filepath):
-    raw = tikaParse(filepath)
-    if raw['status'] != 200 or not raw['content']:
-        return jsonify({"error": "Unsupported content."})
+    mime = detector.from_file(filepath)
+    raw = None
+    if 'html' in mime:
+        text = html2text.html2text(readFile(filepath))
+        raw = {
+                'status': 200,
+                'content': text
+            }
+    else:
+        raw = tikaParse(filepath)
+        if raw['status'] != 200 or not raw['content']:
+            return jsonify({"error": "Unsupported content."})
 
     content = raw['content']
     r = requests.post(BERT_SERVER, json={
