@@ -72,14 +72,21 @@ class App extends React.Component {
         console.log(tag)
         this.closeModal()
         if (window.socket) {
-            window.socket.emit('addTag', fileId, tag, (error) => {
-                console.log(error)
-            })
             let file = {...this.state.files[fileId], tags: [...this.state.files[fileId].tags, tag]}
             let files = {...this.state.files}
             files[file.id] = file
             this.setState({
                 files: files
+            })
+            window.socket.emit('addTag', fileId, tag, (ack) => {
+                console.log(ack)
+                if (ack.payload) {
+                    files = {...this.state.files}
+                    files[fileId] = ack.payload
+                    this.setState({
+                        files: files
+                    })
+                }
             })
         }
     }

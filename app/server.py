@@ -47,7 +47,15 @@ def get_all_files():
         id_to_file = db['id_to_file']
         return {'payload': id_to_file, 'error': 0, 'error_str': 'Success'}
 
-    return {'error': -1, 'error_str': 'Could not open DB'}
+    return {'error': -1, 'error_str': 'Could not open DB.'}
+
+@socketio.on('getFile')
+def get_file(uid):
+    with shelve.open(DB_FILE) as db:
+        id_to_file = db['id_to_file']
+        return {'payload': id_to_file[uid], 'error': 0, 'error_str': 'Success'}
+
+    return {'error': -1, 'error_str': 'Could not open DB.'}
 
 
 @socketio.on('openFile')
@@ -180,7 +188,7 @@ def add_tag(unique_id, tag_name):
 
     # err if file_dict None
     if filepath is None:
-        return {"error": -1, "error_str": "Could not retrieve file."}
+        return {"error": -1, "error_str": "Could not retrieve file.", "payload": file_dict}
     
     enc = getEncoding(filepath)
 
@@ -196,8 +204,7 @@ def add_tag(unique_id, tag_name):
         file_dict['tags'].append(tag_name)
         db['id_to_file'] = id_to_file
 
-    socketio.emit('newFile', file_dict) 
-    return {"error": 0, "error_str": "Success adding tag."}
+    return {"error": 0, "error_str": "Success adding tag.", "payload": file_dict}
 
 @socketio.on('updateTag')
 def update_tag(unique_id, tag_name):
