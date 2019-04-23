@@ -60,7 +60,7 @@ def open_file(filepath):
         subprocess.Popen(["open", filedir])
     else:
         subprocess.Popen(["xdg-open", filedir])
-    return True
+    return {'payload': True, 'error': 0, 'error_str': 'Successfully opened file."}
 
 
 def tikaParse(filepath):
@@ -197,6 +197,7 @@ def add_tag(unique_id, tag_name):
         db['id_to_file'] = id_to_file
 
     socketio.emit('newFile', file_dict) 
+    return {"error": 0, "error_str": "Success adding tag."}
 
 @socketio.on('updateTag')
 def update_tag(unique_id, tag_name):

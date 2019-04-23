@@ -27,7 +27,7 @@ class App extends React.Component {
 
             socket.emit('getAllFiles', (files) => {
                 console.log(files)
-                if (files['error'] == 0) {
+                if (files['error'] === 0) {
                     this.setState({
                         files: files['payload']
                     })
@@ -55,8 +55,8 @@ class App extends React.Component {
 
     openFile = (filepath) => {
         if (window.socket) {
-            window.socket.emit('openFile', filepath, (error) => {
-                console.log(error)
+            window.socket.emit('openFile', filepath, (ack) => {
+                console.log(ack)
             })
         }
     }
@@ -100,10 +100,17 @@ class App extends React.Component {
     // }
 
     render() {
-        let files = []
+        let sortedKeys = []
         for (let key in this.state.files) {
+            sortedKeys.push(key)
+        }
+        sortedKeys.sort()
+        sortedKeys.reverse()
+
+        let files = []
+        for (let key in sortedKeys) {
             let value = this.state.files[key]
-            files.unshift(value)
+            files.push(value)
         }
         return (
             <>
@@ -120,9 +127,9 @@ class App extends React.Component {
                         <tfoot>
                             {files.map((file) => {
                                 return (
-                                    <tr key={file.id} onClick={() => { this.openFile(file.path) }}>
-                                        <td>{file.name}</td>
-                                        <td>{file.path}</td>
+                                    <tr key={file.id}>
+                                        <td onClick={() => {this.openFile(file.path)}}><a>{file.name}</a></td>
+                                        <td onClick={() => {this.openFile(file.path)}}><a>{file.path}</a></td>
                                         <td>
                                             <div className='field is-grouped is-grouped-multiline'>
                                                 {file.tags.map((tag) => {
@@ -158,7 +165,7 @@ class App extends React.Component {
                     <div className='container is-fluid has-text-centered'>
                         <div className="field has-addons">
                             <div className="control is-expanded">
-                                <input ref={input => input && input.focus()} className="input is-focused" type="text" placeholder="New Tag" value={this.state.modal.textField} onChange={evt => this.updateModalInputValue(evt)} />
+                                <input onKeyPress={(evt) => {evt.key === 'Enter' && this.addTag(this.state.modal.fileId, this.state.modal.textField)}} ref={input => input && input.focus()} className="input is-focused" type="text" placeholder="New Tag" value={this.state.modal.textField} onChange={evt => this.updateModalInputValue(evt)} />
                             </div>
                             <div className="control">
                                 <a className="button is-info" onClick={() => {this.addTag(this.state.modal.fileId, this.state.modal.textField)}}>
