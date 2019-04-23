@@ -39,12 +39,13 @@ socketio = SocketIO(app)
 @socketio.on('openFile')
 def openFile(filepath):
     filepath = os.path.normpath(filepath)
+    filedir = os.path.dirname(filepath)
     if platform.system() == "Windows":
         subprocess.Popen(["explorer", "/select,", filepath])
     elif platform.system() == "Darwin":
-        subprocess.Popen(["open", filepath])
+        subprocess.Popen(["open", filedir])
     else:
-        subprocess.Popen(["xdg-open", filepath])
+        subprocess.Popen(["xdg-open", filedir])
     return True
 
 def tikaParse(filepath):
