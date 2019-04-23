@@ -23,12 +23,15 @@ class App extends React.Component {
         socket.on('connect', () => {
             console.log('connected')
 
-            this.socket = socket
+            window.socket = socket
 
             socket.emit('getAllFiles', (files) => {
-                this.setState({
-                    files: files
-                })
+                console.log(files)
+                if (files['error'] == 0) {
+                    this.setState({
+                        files: files['payload']
+                    })
+                }
                 socket.on('newFile', (file) => {
                     let files = {...this.state.files}
                     files[file.id] = file
@@ -60,15 +63,23 @@ class App extends React.Component {
 
     activateModal = (fileId) => {
         this.setState({
-            modal: {...this.state.modal, active: true}
+            modal: {...this.state.modal, active: true, fileId: fileId}
         })
     }
 
     addTag = (fileId, tag) => {
+        console.log(fileId)
+        console.log(tag)
         this.closeModal()
         if (window.socket) {
             window.socket.emit('addTag', fileId, tag, (error) => {
                 console.log(error)
+            })
+            let file = {...this.state.files[fileId], tags: [...this.state.files[fileId].tags, tag]}
+            let files = {...this.state.files}
+            files[file.id] = file
+            this.setState({
+                files: files
             })
         }
     }

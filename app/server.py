@@ -6,6 +6,7 @@ import platform
 import subprocess
 import shelve
 import logging
+import sys
 from datetime import datetime
 
 import numpy as np
@@ -26,6 +27,8 @@ from tika import parser
 # to talk with frontend
 import webview
 
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
 BERT_SERVER = 'http://199.168.72.148:6666'
 PICKLED_FILE = '20newsgroups_train_encoded'
 SAMPLE_SIZE = 10
@@ -42,12 +45,7 @@ socketio = SocketIO(app)
 def get_all_files():
     with shelve.open(DB_FILE) as db:
         id_to_file = db['id_to_file']
-
-        files = []
-        for k, v in id_to_file.items():
-            files.append(v)
-
-        return {'payload': files, 'error': 0, 'error_str': 'Success'}
+        return {'payload': id_to_file, 'error': 0, 'error_str': 'Success'}
 
     return {'error': -1, 'error_str': 'Could not open DB'}
 
@@ -81,7 +79,6 @@ def getEncoding(filepath):
         return jsonify({"error": "Unsupported content."})
 
     content = raw['content']
-    logging.debug(content)
     r = requests.post(BERT_SERVER, json={
                       "doc": content, "sample_size": SAMPLE_SIZE})
     enc = r.json()['features']
@@ -103,43 +100,64 @@ def receive_download_data():
     mimetype = content['mime']
     logging.debug(mimetype)
 
-    enc = getEncoding(filepath)
-
-    topk = 5
-    index_to_name = None
-    docs_vec = None
-    with shelve.open(DB_FILE) as db:
-        index_to_name = db['index_to_name']
-        docs_vec = db['docs_vec']
-
-    if index_to_name is None:
-        logging.error("Index to Name vector not properly initialized.")
-    if docs_vec is None:
-        logging.error("Docs Vector not properly initialized.")
-
-    score = np.sum(enc * docs_vec, axis=1) / np.linalg.norm(docs_vec, axis=1)
-    topk_idx = np.argsort(score)[::-1][:topk]
-
-    names = []
-    sorted_score = np.sort(score)[::-1]
-    for i, idx in enumerate(topk_idx[:5]):
-        name = index_to_name[idx]
-        logging.info(f'Score: {sorted_score[i]}\t\tPred: {name}')
-        names.append(name)
-
     unique_id = -1
     with shelve.open(DB_FILE) as db:
         unique_id = db['unique_id']
         db['unique_id'] += 1
 
+    # Populate tags after
     file_dict = {
             'id': unique_id,
             'name': os.path.basename(filepath),
             'path': filepath,
-            'tags': names,
+            'tags': [],
             'timestamp': str(datetime.utcnow())
             }
 
+    with shelve.open(DB_FILE) as db:
+        o_dict = db['id_to_file']
+        o_dict[unique_id] = file_dict
+        db['id_to_file'] = o_dict
+        logging.info(filepath +' file saved')
+        
+    # Load file
+    socketio.emit('newFile', file_dict)
+    enc = getEncoding(filepath)
+
+    topk = 5
+    docs_names = []
+    docs_vec = []
+    with shelve.open(DB_FILE) as db:
+        tags = db['tags']
+        #TODO tags is empty
+        if len(tags) == 0:
+            logging.warning('There are no tags defined.')
+            return jsonify({"error": True}) 
+        #TODO change to constant
+        # random key to get shape
+        #embed_len = next(iter(tags))['enc'].shape[1]
+        for key, val in tags.items():
+            docs_names.append(key)
+            docs_vec.append(val["enc"])
+
+        docs_vec = np.array(docs_vec)
+
+    if len(docs_vec) == 0:
+        logging.error("Docs Vector not properly initialized.")
+        return jsonify({"error": True}) 
+
+    score = np.sum(enc * docs_vec, axis=1) / np.linalg.norm(docs_vec, axis=1)
+    topk_idx = np.argsort(score)[::-1][:topk]
+
+    names = []
+    for idx in topk_idx:
+        name = docs_names[idx]
+        logging.info(f'Score: {score[idx]}\t\tPred: {name}')
+        names.append(name)
+
+    #TODO fix this shit
+    # Update names in the db
+    file_dict['tags'] = names 
     with shelve.open(DB_FILE) as db:
         db['id_to_file'][unique_id] = file_dict
 
@@ -150,7 +168,9 @@ def receive_download_data():
 
 @socketio.on('addTag')
 def add_tag(unique_id, tag_name):
+    logging.debug(f'unique_id: {unique_id} \t tag_name: {tag_name}')
     filepath = None
+    file_dict = None
     with shelve.open(DB_FILE) as db:
         # Check name doesn't exist
         if tag_name in db['tags'].keys():
@@ -158,14 +178,25 @@ def add_tag(unique_id, tag_name):
         file_dict = db['id_to_file'][unique_id]
         filepath = file_dict['path']
 
+    # err if file_dict None
     if filepath is None:
         return {"error": -1, "error_str": "Could not retrieve file."}
     
     enc = getEncoding(filepath)
 
+    #TODO change to encoding
     new_tag = { "enc": enc, "num_docs": 1 }
     with shelve.open(DB_FILE) as db:
-        db['tags'][tag_name] = new_tag
+        tags = db['tags']
+        tags[tag_name] = new_tag
+        db['tags'] = tags
+        logging.info('New tag: ' + tag_name)
+        id_to_file = db['id_to_file']
+        file_dict = id_to_file[unique_id]
+        file_dict['tags'].append(tag_name)
+        db['id_to_file'] = id_to_file
+
+    socketio.emit('newFile', file_dict) 
 
 @socketio.on('updateTag')
 def update_tag(unique_id, tag_name):
@@ -195,33 +226,35 @@ def serve(path):
     else:
         return send_from_directory(FRONTEND_BUILD_FOLDER, 'index.html')
 
-def main():
+def main(debug=False):
+    # seed
     with shelve.open(DB_FILE) as db:
-        db['unique_id'] = 0
-        db['id_to_file'] = collections.OrderedDict()
-        db['tags'] = {}
+        if 'unique_id' not in db:
+            db['unique_id'] = 0
+            db['id_to_file'] = collections.OrderedDict()
+            db['tags'] = {}
+    # tags_encodes = {}
+    # with open(PICKLED_FILE, 'rb') as handle:
+    #     tags_encodes = pickle.load(handle)
 
-    tags_encodes = {}
-    with open(PICKLED_FILE, 'rb') as handle:
-        tags_encodes = pickle.load(handle)
+    # name_to_label = collections.OrderedDict()
+    # for i, name in enumerate(newsgroups_train.target_names):
+    #     name_to_label[name] = i
 
-    name_to_label = collections.OrderedDict()
-    for i, name in enumerate(newsgroups_train.target_names):
-        name_to_label[name] = i
+    # tags_encodes = collections.OrderedDict(tags_encodes)
 
-    tags_encodes = collections.OrderedDict(tags_encodes)
+    # with shelve.open(DB_FILE) as db:
+    #     db['index_to_name'] = {}
 
-    with shelve.open(DB_FILE) as db:
-        db['index_to_name'] = {}
+    #     all_docs = []
+    #     for i, (k, v) in enumerate(tags_encodes.items()):
+    #         all_docs.append(v)
+    #         index_to_name[i] = k
 
-        all_docs = []
-        for i, (k, v) in enumerate(tags_encodes.items()):
-            all_docs.append(v)
-            index_to_name[i] = k
+    #     db['docs_vec'] = np.array(all_docs)
 
-        db['docs_vec'] = np.array(all_docs)
     # app.run(port=4994, debug=False, threaded=True)
-    socketio.run(app, port=4994, debug=False)
+    socketio.run(app, port=4994, debug=debug)
 
 if __name__ == '__main__':
-    main()
+    main(debug=True)
