@@ -91,6 +91,29 @@ class App extends React.Component {
         }
     }
 
+    removeTag = (fileId, tag) => {
+        console.log(fileId)
+        console.log(tag)
+        if (window.socket) {
+            let file = {...this.state.files[fileId], tags: this.state.files[fileId].filter(e => e != tag)}
+            let files = {...this.state.files}
+            files[file.id] = file
+            this.setState({
+                files: files
+            })
+            window.socket.emit('removeTag', fileId, tag, (ack) => {
+                console.log(ack)
+                if (ack.payload) {
+                    files = {...this.state.files}
+                    files[fileId] = ack.payload
+                    this.setState({
+                        files: files
+                    })
+                }
+            })
+        }
+    }
+
     closeModal = () => {
         this.setState({
             modal: {
@@ -144,7 +167,7 @@ class App extends React.Component {
                                                         <div key={tag} className='control'>
                                                             <div className='tags are-small has-addons'>
                                                                 <span className='tag is-info'>{tag}</span>
-                                                                <a onClick={() => { this.deleteTag(file.id, tag) }} className='tag is-delete'></a>
+                                                                <a onClick={() => { this.removeTag(file.id, tag) }} className='tag is-delete'></a>
                                                             </div>
                                                         </div>
                                                     )
