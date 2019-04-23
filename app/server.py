@@ -23,13 +23,13 @@ from sklearn import metrics
 # actually there may be a function to pass a file into tika and
 # it tells us whether or not it can parse it...
 from tika import parser
-from tika import detector
+from mimetypes import MimeTypes
 
 import html2text
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
-BERT_SERVER = 'http://199.168.72.148:6666'
+BERT_SERVER = 'http://owl.maxl.in:6666'
 PICKLED_FILE = '20newsgroups_train_encoded'
 SAMPLE_SIZE = 10
 
@@ -74,7 +74,6 @@ def open_file(filepath):
 def tikaParse(filepath):
     try:
         raw = parser.from_file(filepath)
-        print(raw['content'][:500])
     except UnicodeEncodeError as e:
         #TODO this is sus af
         raw = {
@@ -92,7 +91,8 @@ def readFile(filepath):
     return content
 
 def getEncoding(filepath):
-    mime = detector.from_file(filepath)
+    m = MimeTypes()
+    mime = m.guess_type(filepath)[0]
     raw = None
     if 'html' in mime:
         text = html2text.html2text(readFile(filepath))
