@@ -50,7 +50,7 @@ class App extends React.Component {
 
             window.socket = socket
 
-            return
+            // return
             socket.emit('getAllFiles', (files) => {
                 console.log(files)
                 if (files['error'] === 0) {
