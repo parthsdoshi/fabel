@@ -28,5 +28,5 @@ if __name__ == '__main__':
         sleep(.3)
 
     # use chrome renderer instead of IE
-    webview.gui = 'cef'
+    webview.config.gui = 'cef'
     webview.create_window('Fabel', 'http://localhost:4994', debug=True)

@@ -141,6 +141,8 @@ def receive_download_data():
             'timestamp': str(datetime.utcnow())
             }
 
+    socketio.emit('newFile', file_dict)
+
     with shelve.open(DB_FILE) as db:
         o_dict = db['id_to_file']
         o_dict[unique_id] = file_dict
@@ -148,7 +150,6 @@ def receive_download_data():
         logging.info(filepath +' file saved')
         
     # Load file
-    socketio.emit('newFile', file_dict)
     enc = getEncoding(filepath)
 
     topk = 2 
@@ -159,7 +160,7 @@ def receive_download_data():
         #TODO tags is empty
         if len(tags) == 0:
             logging.warning('There are no tags defined.')
-            return jsonify({"error": True}) 
+            return jsonify({"error": False}) 
         #TODO change to constant
         # random key to get shape
         #embed_len = next(iter(tags))['enc'].shape[1]
@@ -171,6 +172,7 @@ def receive_download_data():
 
     if len(docs_vec) == 0:
         logging.error("Docs Vector not properly initialized.")
+        socketio.emit('removeFile', unique_id)
         return jsonify({"error": True}) 
 
     score = np.sum(enc * docs_vec, axis=1) / np.linalg.norm(docs_vec, axis=1)
@@ -191,7 +193,7 @@ def receive_download_data():
         id_to_file[unique_id] = file_dict
         db['id_to_file'] = id_to_file 
 
-    socketio.emit('newFile', file_dict)
+    socketio.emit('updateFile', file_dict)
 
     return jsonify({"error": False})
 

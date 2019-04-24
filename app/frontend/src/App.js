@@ -5,11 +5,36 @@ import Modal from './Modal'
 import 'bulma/css/bulma.css'
 import '@fortawesome/fontawesome-free/css/all.min.css'
 
+import './table.css'
+
 class App extends React.Component {
     constructor(props) {
         super(props)
+        let test_files = {
+            0: { 'id': 0, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            1: { 'id': 1, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            2: { 'id': 2, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            3: { 'id': 3, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            4: { 'id': 4, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            5: { 'id': 5, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            6: { 'id': 6, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            7: { 'id': 7, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            8: { 'id': 8, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            9: { 'id': 9, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            10: { 'id': 10, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            11: { 'id': 11, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            12: { 'id': 12, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            13: { 'id': 13, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            14: { 'id': 14, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            15: { 'id': 15, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            16: { 'id': 16, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            17: { 'id': 17, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            18: { 'id': 18, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            19: { 'id': 19, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+            20: { 'id': 20, 'tags': 'loading', 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' },
+        }
         this.state = {
-            files: {0: { 'id': 0, 'tags': ['test', 'test2'], 'date': Date.now(), 'path': 'test/test/test', 'name': 'test' }},
+            files: {},
             modal: {
                 active: false,
                 fileId: -1,
@@ -25,6 +50,7 @@ class App extends React.Component {
 
             window.socket = socket
 
+            return
             socket.emit('getAllFiles', (files) => {
                 console.log(files)
                 if (files['error'] === 0) {
@@ -34,10 +60,32 @@ class App extends React.Component {
                 }
                 socket.on('newFile', (file) => {
                     let files = {...this.state.files}
+                    file['tags'] = 'loading'
                     files[file.id] = file
                     this.setState({
                         files: files
                     })
+                })
+
+                socket.on('updateFile', (file) => {
+                    let files = {...this.state.files}
+                    files[file.id] = file
+                    this.setState({
+                        files: files
+                    })
+                })
+
+                socket.on('removeFile', (uniqueId) => {
+                    // should probably notify user in a modal or smthg
+                    if (uniqueId in this.state.files) {
+                        let files = {...this.state.files}
+                        delete files[uniqueId]
+                        this.setState({
+                            files: files
+                        })
+                    } else {
+                        // handle error
+                    }
                 })
                 // socket.on('updateFile', (file) => {
                 //     for
@@ -72,7 +120,13 @@ class App extends React.Component {
         console.log(tag)
         this.closeModal()
         if (window.socket) {
-            let file = {...this.state.files[fileId], tags: [...this.state.files[fileId].tags, tag]}
+            // let file = {...this.state.files[fileId], tags: [...this.state.files[fileId].tags, tag]}
+            // let files = {...this.state.files}
+            // files[file.id] = file
+            // this.setState({
+            //     files: files
+            // })
+            let file = {...this.state.files[fileId], tags: 'loading'}
             let files = {...this.state.files}
             files[file.id] = file
             this.setState({
@@ -95,7 +149,13 @@ class App extends React.Component {
         console.log(fileId)
         console.log(tag)
         if (window.socket) {
-            let file = {...this.state.files[fileId], tags: this.state.files[fileId].tags.filter(e => e != tag)}
+            // let file = {...this.state.files[fileId], tags: this.state.files[fileId].tags.filter(e => e !== tag)}
+            // let files = {...this.state.files}
+            // files[file.id] = file
+            // this.setState({
+            //     files: files
+            // })
+            let file = {...this.state.files[fileId], tags: 'loading'}
             let files = {...this.state.files}
             files[file.id] = file
             this.setState({
@@ -130,6 +190,19 @@ class App extends React.Component {
     // }
 
     render() {
+        // .tableFixHead    { overflow-y: auto; height: 100px}
+        // .tableFixHead th { position: sticky; top: 0; }
+        let tableFixedHeadStyle = {
+            overflowY: 'auto',
+            height: '100px'
+        }
+        let tableFixedHeadThStyle = {
+            position: 'sticky',
+            top: 0,
+            background: 'white',
+            backgroundColor: 'white'
+        }
+
         let sortedKeys = []
         for (let key in this.state.files) {
             sortedKeys.push(parseInt(key))
@@ -147,13 +220,16 @@ class App extends React.Component {
         return (
             <>
                 <div className='container is-fluid'>
-                    <table className="table is-hoverable is-fullwidth">
+                    {/* <table className="table is-fullwidth" style={tableFixedHeadStyle}> */}
+                    <table className="table is-fullwidth tableFixedHead">
                         <thead>
                             <tr>
                                 <th>File Name</th>
                                 <th>File Path</th>
                                 <th>Tags</th>
-                                {/* <th title="filename">Suggested Tags</th> */}
+                                {/* <th style={tableFixedHeadThStyle}>File Name</th> */}
+                                {/* <th style={tableFixedHeadThStyle}>File Path</th> */}
+                                {/* <th style={tableFixedHeadThStyle}>Tags</th> */}
                             </tr>
                         </thead>
                         <tfoot>
@@ -163,7 +239,7 @@ class App extends React.Component {
                                         <td onClick={() => {this.openFile(file.path)}}><a>{file.name}</a></td>
                                         <td onClick={() => {this.openFile(file.path)}}><a>{file.path}</a></td>
                                         <td>
-                                            <div className='field is-grouped is-grouped-multiline'>
+                                            {file.tags !== 'loading' && <div className='field is-grouped is-grouped-multiline'>
                                                 {file.tags.map((tag) => {
                                                     return (
                                                         <div key={tag} className='control'>
@@ -181,12 +257,13 @@ class App extends React.Component {
                                                                 <i className="fas fa-plus"></i>
                                                             </span>
                                                         </a>
-                                                        {/* <span>GitHub</span> */}
                                                     </div>
                                                 </div>
-                                            </div>
+                                            </div>}
+                                            {file.tags === 'loading' && <div className='level'><div className='level-item'>
+                                                <progress className="progress is-small is-info"/>
+                                            </div></div>}
                                         </td>
-                                        {/* <td>{file.suggested_tags}</td> */}
                                     </tr>
                                 )
                             })}
