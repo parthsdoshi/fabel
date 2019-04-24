@@ -364,4 +364,4 @@ def load_bert():
 
 if __name__ == '__main__':
     load_bert()
-    app.run(host='0.0.0.0', port=6666) 
+    app.run(host='0.0.0.0', port=6666)
