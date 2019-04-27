@@ -30,6 +30,7 @@ import html2text
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 BERT_SERVER = 'http://owl.maxl.in:6666'
+# BERT_SERVER = 'http://localhost:6666'
 PICKLED_FILE = '20newsgroups_train_encoded'
 SAMPLE_SIZE = 10
 
@@ -93,6 +94,8 @@ def getEncoding(filepath):
     raw = None
     if 'html' in mime:
         text = html2text.html2text(readFile(filepath))
+        with open('test.txt', 'w') as f:
+            f.write(text)
         raw = {
                 'status': 200,
                 'content': text
@@ -133,7 +136,7 @@ def receive_download_data():
             'id': unique_id,
             'name': os.path.basename(filepath),
             'path': filepath,
-            'tags': [],
+            'tags': {},
             'timestamp': str(datetime.utcnow())
             }
 
@@ -156,6 +159,7 @@ def receive_download_data():
         #TODO tags is empty
         if len(tags) == 0:
             logging.warning('There are no tags defined.')
+            socketio.emit('updateFile', file_dict)
             return jsonify({"error": False}) 
         #TODO change to constant
         # random key to get shape
