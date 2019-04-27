@@ -57,7 +57,6 @@ def get_file(uid):
 
     return {'error': -1, 'error_str': 'Could not open DB.'}
 
-
 @socketio.on('openFile')
 def open_file(filepath):
     filepath = os.path.normpath(filepath)
@@ -70,11 +69,10 @@ def open_file(filepath):
         subprocess.Popen(["xdg-open", filedir])
     return {'payload': True, 'error': 0, 'error_str': 'Successfully opened file.'}
 
-
 def tikaParse(filepath):
     try:
         raw = parser.from_file(filepath)
-    except UnicodeEncodeError as e:
+    except UnicodeEncodeError as _:
         #TODO this is sus af
         raw = {
             "status": 200,
@@ -83,7 +81,6 @@ def tikaParse(filepath):
         return raw
 
     return raw
-
 
 def readFile(filepath):
     with open(filepath, 'r', encoding='utf-8') as f:
@@ -111,7 +108,6 @@ def getEncoding(filepath):
     enc = r.json()['features']
     logging.info("Encoding: "+str(enc[:20]))
     return enc
-
 
 @app.route('/rcv', methods=['POST'])
 def receive_download_data():
@@ -178,14 +174,13 @@ def receive_download_data():
     score = np.sum(enc * docs_vec, axis=1) / np.linalg.norm(docs_vec, axis=1)
     topk_idx = np.argsort(score)[::-1][:topk]
 
-    names = []
+    names = {}
     for idx in topk_idx:
         name = docs_names[idx]
         logging.info(f'Score: {score[idx]}\t\tPred: {name}')
-        names.append(name)
+        names[name] = name
         update_tag_encoding(name, enc)
 
-    #TODO fix this shit
     # Update names in the db
     file_dict['tags'] = names 
     with shelve.open(DB_FILE) as db:
@@ -196,7 +191,6 @@ def receive_download_data():
     socketio.emit('updateFile', file_dict)
 
     return jsonify({"error": False})
-
 
 @socketio.on('addTag')
 def add_tag(unique_id, tag_name):
@@ -233,11 +227,11 @@ def add_tag(unique_id, tag_name):
         update_tag_encoding(tag_name, enc)
         
 
+    # Add tag
     with shelve.open(DB_FILE) as db:
-        # Add tag
         id_to_file = db['id_to_file']
         file_dict = id_to_file[unique_id]
-        file_dict['tags'].append(tag_name)
+        file_dict['tags'][tag_name] = tag_name
         db['id_to_file'] = id_to_file
 
     return {"error": 0, "error_str": "Success adding tag.", "payload": file_dict}
@@ -285,7 +279,7 @@ def remove_tag(unique_id, tag_name):
     with shelve.open(DB_FILE) as db:
         id_to_file = db['id_to_file']
         file_dict = id_to_file[unique_id]
-        file_dict['tags'].remove(tag_name)
+        file_dict['tags'].pop(tag_name, None)
         db['id_to_file'] = id_to_file
 
     socketio.emit('newFile', file_dict) 
