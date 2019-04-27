@@ -107,3 +107,4 @@ venv.bak/
 
 .*.swp
 node_modules
+nn/bert/pretrained/
