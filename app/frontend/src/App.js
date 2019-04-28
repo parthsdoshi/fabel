@@ -42,11 +42,15 @@ class App extends React.Component {
                 fileId: -1,
                 textField: ''
             },
+            fileModal: {
+                active: false
+            },
             clickedTags: new Set()
         }
     }
 
     componentDidMount() {
+        // return
         let socket = io()
         socket.on('connect', () => {
             console.log('connected')
@@ -200,6 +204,36 @@ class App extends React.Component {
         })
     }
 
+    onDragOver = (evt) => {
+        evt.preventDefault()
+        this.setState({
+            fileModal: {...this.state.fileModal, active: true}
+        })
+        // console.log(evt)
+    }
+
+    onDropped = (evt) => {
+        evt.preventDefault()
+        this.setState({
+            fileModal: {...this.state.fileModal, active: false}
+        })
+        // console.log(evt.dataTransfer.files)
+        // console.log(evt.dataTransfer.items[0].webkitGetAsEntry())
+        if (window.socket) {
+            window.socket.emit('openFileDialog', (ack) => {
+                console.log(ack)
+            })
+        }
+    }
+
+    createFileDialog = () => {
+        if (window.socket) {
+            window.socket.emit('openFileDialog', (ack) => {
+                console.log(ack)
+            })
+        }
+    }
+
     // updateFile = (file) => {
 
     // }
@@ -261,12 +295,26 @@ class App extends React.Component {
 
         return (
             <>
-                <div className='container is-fluid'>
+                <div className='container is-fluid' onDrop={this.onDropped} onDragOver={this.onDragOver}>
                     {/* <table className="table is-fullwidth" style={tableFixedHeadStyle}> */}
                     <section className='hero is-primary is-bold'>
                         <div className='hero-body'>
                             <div className='container'>
-                                <h1 className='title'>Filter by Fabels:</h1>
+                                <nav className='level'>
+                                    <div className='level-left'>
+                                        <h1 className='title'>Filter by Fabels:</h1>
+                                    </div>
+                                    <div className='level-right'>
+                                        <div className='level-item'>
+                                            <a class="button is-rounded" onClick={this.createFileDialog}>
+                                                <span className='icon'>
+                                                    <i class="fas fa-plus"></i>
+                                                </span>
+                                                <span>Add Files</span>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </nav>
                                 <div className='control'>
                                     <div className='tags are-small'>
                                         {allTags.map(tagDict => {
@@ -345,6 +393,13 @@ class App extends React.Component {
                         </div>
                     </div>
                 </Modal>
+                <div onDragOver={this.onDragOver} onDrop={this.onDropped}>
+                <Modal active={this.state.fileModal.active} close={this.closeFileModal}>
+                    <div className='container is-fluid has-text-centered'>
+                        <p>Drop files here.</p>
+                    </div>
+                </Modal>
+                </div>
             </>
         )
     }

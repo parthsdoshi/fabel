@@ -19,6 +19,8 @@ from flask_socketio import SocketIO
 from sklearn.datasets import fetch_20newsgroups
 from sklearn import metrics
 
+import webview
+
 # to grab text from things like pdf, ppt, docx, etc
 # actually there may be a function to pass a file into tika and
 # it tells us whether or not it can parse it...
@@ -41,6 +43,12 @@ DB_FILE = 'db'
 app = Flask(__name__, static_folder=FRONTEND_BUILD_FOLDER)
 socketio = SocketIO(app)
 
+
+@socketio.on('openFileDialog')
+def open_file_dialog():
+    files = webview.create_file_dialog(dialog_type=webview.OPEN_DIALOG, directory='', allow_multiple=True)
+    for f in files:
+        receive_download_data(online=False, local_filepath=f)
 
 @socketio.on('getAllFiles')
 def get_all_files():
@@ -113,18 +121,21 @@ def getEncoding(filepath):
     return enc
 
 @app.route('/rcv', methods=['POST'])
-def receive_download_data():
-    content = request.json
+def receive_download_data(online=True, local_filepath=None):
+    if online:
+        content = request.json
 
-    if content['state'] != 'complete':
-        return jsonify({"error": True})
+        if content['state'] != 'complete':
+            return jsonify({"error": True})
 
-    filepath = os.path.normpath(content['filename'])
-    if not os.path.exists(filepath):
-        return jsonify({"error": True})
+        filepath = os.path.normpath(content['filename'])
+        if not os.path.exists(filepath):
+            return jsonify({"error": True})
 
-    mimetype = content['mime']
-    logging.debug(mimetype)
+        mimetype = content['mime']
+        logging.debug(mimetype)
+    else:
+        filepath = local_filepath
 
     unique_id = -1
     with shelve.open(DB_FILE) as db:
@@ -160,7 +171,8 @@ def receive_download_data():
         if len(tags) == 0:
             logging.warning('There are no tags defined.')
             socketio.emit('updateFile', file_dict)
-            return jsonify({"error": False}) 
+            if online:
+                return jsonify({"error": False}) 
         #TODO change to constant
         # random key to get shape
         #embed_len = next(iter(tags))['enc'].shape[1]
@@ -173,7 +185,8 @@ def receive_download_data():
     if len(docs_vec) == 0:
         logging.error("Docs Vector not properly initialized.")
         socketio.emit('removeFile', unique_id)
-        return jsonify({"error": True}) 
+        if online:
+            return jsonify({"error": True}) 
 
     score = np.sum(enc * docs_vec, axis=1) / np.linalg.norm(docs_vec, axis=1)
     topk_idx = np.argsort(score)[::-1][:topk]
@@ -194,7 +207,8 @@ def receive_download_data():
 
     socketio.emit('updateFile', file_dict)
 
-    return jsonify({"error": False})
+    if online:
+        return jsonify({"error": False})
 
 @socketio.on('addTag')
 def add_tag(unique_id, tag_name):
