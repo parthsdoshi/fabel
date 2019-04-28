@@ -42,7 +42,7 @@ SAMPLE_SIZE = 10
 
 FRONTEND_BUILD_FOLDER = os.path.normpath('frontend/build')
 
-DB_FILE = 'db'
+DB_FILE = 'db-seed'
 
 app = Flask(__name__, static_folder=FRONTEND_BUILD_FOLDER)
 socketio = SocketIO(app)
@@ -359,7 +359,9 @@ def main(debug=False):
     with shelve.open(DB_FILE) as db:
         if 'unique_id' not in db:
             db['unique_id'] = 0
+        if 'id_to_file' not in db:
             db['id_to_file'] = collections.OrderedDict()
+        if 'tags' not in db:
             db['tags'] = {}
 
     # tags_encodes = {}
