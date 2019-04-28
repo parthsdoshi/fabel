@@ -23,6 +23,7 @@ if platform.system() == 'Darwin':
     import webview
 else:
     import tkinter as tk
+    from tkinter import filedialog
 
 # to grab text from things like pdf, ppt, docx, etc
 # actually there may be a function to pass a file into tika and
@@ -34,8 +35,8 @@ import html2text
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
-BERT_SERVER = 'http://owl.maxl.in:6666'
-# BERT_SERVER = 'http://localhost:6666'
+# BERT_SERVER = 'http://owl.maxl.in:6666'
+BERT_SERVER = 'http://localhost:6666'
 PICKLED_FILE = '20newsgroups_train_encoded'
 SAMPLE_SIZE = 10
 
@@ -47,8 +48,7 @@ app = Flask(__name__, static_folder=FRONTEND_BUILD_FOLDER)
 socketio = SocketIO(app)
 
 def getFilePaths():
-    tk.Tk().withdraw()
-    return tk.filedialog.askopenfilenames()
+    return filedialog.askopenfilenames()
 
 def getFilePathsMacOS():
     files = webview.create_file_dialog(dialog_type=webview.OPEN_DIALOG, directory='', allow_multiple=True)
@@ -383,6 +383,8 @@ def main(debug=False):
     #     db['docs_vec'] = np.array(all_docs)
 
     # app.run(port=4994, debug=False, threaded=True)
+    if platform.system() != 'Darwin':
+        tk.Tk().withdraw()
     socketio.run(app, port=4994, debug=debug)
 
 if __name__ == '__main__':

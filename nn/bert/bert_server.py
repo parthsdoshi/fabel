@@ -16,8 +16,7 @@ from bert import tokenization
 
 import nltk
 from nltk.tokenize import sent_tokenize
-# uncomment this to initialize nltk on first install
-# nltk.download(punkt)
+nltk.download('punkt')
 
 uncased = True
 BERT_MODEL_DIR = path.normpath("pretrained/uncased_L-12_H-768_A-12")
