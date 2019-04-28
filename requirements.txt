@@ -9,4 +9,3 @@ numpy==1.15.4
 tensorflow==1.13.1
 tika==1.19
 scikit_learn==0.20.3
-webview==0.1.5
