@@ -19,8 +19,10 @@ from flask_socketio import SocketIO
 from sklearn.datasets import fetch_20newsgroups
 from sklearn import metrics
 
-import tkinter as tk
-from tkinter import filedialog
+if platform.system() == 'Darwin':
+    import webview
+else:
+    import tkinter as tk
 
 # to grab text from things like pdf, ppt, docx, etc
 # actually there may be a function to pass a file into tika and
@@ -44,11 +46,21 @@ DB_FILE = 'db'
 app = Flask(__name__, static_folder=FRONTEND_BUILD_FOLDER)
 socketio = SocketIO(app)
 
+def getFilePaths():
+    tk.Tk().withdraw()
+    return tk.filedialog.askopenfilenames()
+
+def getFilePathsMacOS():
+    files = webview.create_file_dialog(dialog_type=webview.OPEN_DIALOG, directory='', allow_multiple=True)
+    return files
 
 @socketio.on('openFileDialog')
 def open_file_dialog():
     # files = webview.create_file_dialog(dialog_type=webview.OPEN_DIALOG, directory='', allow_multiple=True)
-    files = filedialog.askopenfilenames()
+    if platform.system() == 'Darwin':
+        files = getFilePathsMacOS()
+    else:
+        files = getFilePaths()
 
     if files is None:
         # TODO: error handle
@@ -107,6 +119,11 @@ def getEncoding(filepath):
     m = MimeTypes()
     mime = m.guess_type(filepath)[0]
     raw = None
+
+    if mime is None:
+        logging.warning(f"Could not find mime type of {filepath}. Using safest parser: tika.")
+        mime = ''
+
     if 'html' in mime:
         text = html2text.html2text(readFile(filepath))
         with open('test.txt', 'w') as f:
@@ -338,15 +355,13 @@ def serve(path):
         return send_from_directory(FRONTEND_BUILD_FOLDER, 'index.html')
 
 def main(debug=False):
-    root = tk.Tk()
-    root.withdraw()
-
     # seed
     with shelve.open(DB_FILE) as db:
         if 'unique_id' not in db:
             db['unique_id'] = 0
             db['id_to_file'] = collections.OrderedDict()
             db['tags'] = {}
+
     # tags_encodes = {}
     # with open(PICKLED_FILE, 'rb') as handle:
     #     tags_encodes = pickle.load(handle)
