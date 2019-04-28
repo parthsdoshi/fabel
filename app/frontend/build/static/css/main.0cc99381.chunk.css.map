@@ -1,0 +1,1 @@
+{"version":3,"sources":["table.css"],"names":[],"mappings":"AAAA,gBAAqB,eAAgB,CAAE,YAAc,CACrD,mBAAqB,uBAAgB,CAAhB,eAAgB,CAAE,KAAM,CAAE,eAAiB,CAAE,wBAAyB","file":"main.0cc99381.chunk.css","sourcesContent":[".tableFixedHead    { overflow-y: auto; height: 100px }\r\n.tableFixedHead th { position: sticky; top: 0; background: white; background-color: 'white'}"]}
