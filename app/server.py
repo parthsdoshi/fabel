@@ -34,7 +34,8 @@ import html2text
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
-BERT_SERVER = 'http://localhost:6666'
+BERT_SERVER = 'http://owl.maxl.in:6666'
+# BERT_SERVER = 'http://localhost:6666'
 PICKLED_FILE = '20newsgroups_train_encoded'
 SAMPLE_SIZE = 10
 
