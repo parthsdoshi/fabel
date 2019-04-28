@@ -19,7 +19,8 @@ from flask_socketio import SocketIO
 from sklearn.datasets import fetch_20newsgroups
 from sklearn import metrics
 
-import webview
+import tkinter as tk
+from tkinter import filedialog
 
 # to grab text from things like pdf, ppt, docx, etc
 # actually there may be a function to pass a file into tika and
@@ -46,7 +47,13 @@ socketio = SocketIO(app)
 
 @socketio.on('openFileDialog')
 def open_file_dialog():
-    files = webview.create_file_dialog(dialog_type=webview.OPEN_DIALOG, directory='', allow_multiple=True)
+    # files = webview.create_file_dialog(dialog_type=webview.OPEN_DIALOG, directory='', allow_multiple=True)
+    files = filedialog.askopenfilenames()
+
+    if files is None:
+        # TODO: error handle
+        pass
+
     for f in files:
         receive_download_data(online=False, local_filepath=f)
 
@@ -331,6 +338,9 @@ def serve(path):
         return send_from_directory(FRONTEND_BUILD_FOLDER, 'index.html')
 
 def main(debug=False):
+    root = tk.Tk()
+    root.withdraw()
+
     # seed
     with shelve.open(DB_FILE) as db:
         if 'unique_id' not in db:

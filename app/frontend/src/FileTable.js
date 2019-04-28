@@ -9,14 +9,14 @@ import './table.css'
 class FileTable extends React.Component {
     render() {
         return (
-            <table className="table is-fullwidth tableFixedHead is-hoverable">
-                <tfoot>
+            <table className="table is-fullwidth tableFixedHead is-hoverable is-narrow is-striped">
+                <tbody>
                     {this.props.files.map((file) => {
                         return (
                             <tr key={file.id}>
                                 <td width='30%' onClick={() => {this.props.openFile(file.path)}}><a>{file.name}</a></td>
                                 {/* <td onClick={() => {this.openFile(file.path)}}><a>{file.path}</a></td> */}
-                                <td width='25%'>{moment(file.timestamp, 'YYYY-MM-DD HH:mm:ss.SSSSSS').format('MM/DD/YYYY HH:mm a')}</td>
+                                <td width='25%'>{moment(file.timestamp, 'YYYY-MM-DD HH:mm:ss.SSSSSS').format('MM/DD/YYYY hh:mm a')}</td>
                                 <td width='45%'>
                                     {file.tags !== 'loading' && <div className='field is-grouped is-grouped-multiline'>
                                         {Object.keys(file.tags).map((tag) => {
@@ -46,7 +46,7 @@ class FileTable extends React.Component {
                             </tr>
                         )
                     })}
-                </tfoot>
+                </tbody>
 
                 {/* moved to end because tags were showing on top of header */}
                 <thead>

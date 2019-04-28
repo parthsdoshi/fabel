@@ -244,9 +244,9 @@ class App extends React.Component {
 
             let tags = this.state.files[key].tags
             if (tags !== 'loading') {
-                Object.keys(tags).map((tag) => {
+                for (let tag of Object.keys(tags)) {
                     allTagsSet.add(tag)
-                })
+                }
             }
         }
         sortedKeys.sort(function(a, b){return a-b})
@@ -299,8 +299,8 @@ class App extends React.Component {
                             <div className='container'>
                                 <nav className='level'>
                                     <div className='level-left'>
-                                        {files.length > 0 && <h1 className='title'>Filter by Fabels:</h1>}
-                                        {files.length === 0 && <h1 className='title'>Fabel</h1>}
+                                        {allTags.length > 0 && <h1 className='title'>Filter by Fabels:</h1>}
+                                        {allTags.length === 0 && <h1 className='title'>Fabel</h1>}
                                     </div>
                                     <div className='level-right'>
                                         <div className='level-item'>
@@ -330,13 +330,16 @@ class App extends React.Component {
                             <FileTable files={files} activateModal={this.activateModal} removeTag={this.removeTag} openFile={this.openFile} />
                         }
                         {files.length === 0 &&
-                            <article class="message is-medium">
+                            <article class="message">
                                 <div class="message-header">
-                                    Looks like there aren't any files yet.
+                                    Looks like there aren't any files here.
                                 </div>
-                                <div class="message-body">
-                                    You can add one by clicking Add Files on the top right or just download something from Chrome!
-                                </div>
+                                {this.state.clickedTags.size === 0 && <div class="message-body">
+                                    You can add some by clicking Add Files on the top right or just download something from Chrome!
+                                </div>}
+                                {this.state.clickedTags.size > 0 && <div class="message-body">
+                                    No files match your selected fabels :(
+                                </div>}
                             </article>
                         }
                     </div>
