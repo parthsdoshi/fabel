@@ -4,7 +4,8 @@ if platform.system() == 'Darwin':
     import webview
 else:
     from cefpython3 import cefpython as cef
-    cef.DpiAware.EnableHighDpiSupport()
+    if platform.system() == 'Windows':
+        cef.DpiAware.EnableHighDpiSupport()
 
 import sys
 import ctypes
