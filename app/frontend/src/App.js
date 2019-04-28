@@ -1,13 +1,11 @@
 import React from 'react';
 import io from 'socket.io-client'
-import Modal from './Modal'
 
-import moment from 'moment'
+import Modal from './Modal'
+import FileTable from './FileTable'
 
 import 'bulma/css/bulma.css'
 import '@fortawesome/fontawesome-free/css/all.min.css'
-
-import './table.css'
 
 class App extends React.Component {
     constructor(props) {
@@ -50,7 +48,6 @@ class App extends React.Component {
     }
 
     componentDidMount() {
-        // return
         let socket = io()
         socket.on('connect', () => {
             console.log('connected')
@@ -302,7 +299,8 @@ class App extends React.Component {
                             <div className='container'>
                                 <nav className='level'>
                                     <div className='level-left'>
-                                        <h1 className='title'>Filter by Fabels:</h1>
+                                        {files.length > 0 && <h1 className='title'>Filter by Fabels:</h1>}
+                                        {files.length === 0 && <h1 className='title'>Fabel</h1>}
                                     </div>
                                     <div className='level-right'>
                                         <div className='level-item'>
@@ -328,55 +326,19 @@ class App extends React.Component {
                         </div>
                     </section>
                     <div className='box'>
-                        <table className="table is-fullwidth tableFixedHead is-hoverable">
-                            <tfoot>
-                                {files.map((file) => {
-                                    return (
-                                        <tr key={file.id}>
-                                            <td width='30%' onClick={() => {this.openFile(file.path)}}><a>{file.name}</a></td>
-                                            {/* <td onClick={() => {this.openFile(file.path)}}><a>{file.path}</a></td> */}
-                                            <td width='25%'>{moment(file.timestamp, 'YYYY-MM-DD HH:mm:ss.SSSSSS').format('MM/DD/YYYY HH:mm a')}</td>
-                                            <td width='45%'>
-                                                {file.tags !== 'loading' && <div className='field is-grouped is-grouped-multiline'>
-                                                    {Object.keys(file.tags).map((tag) => {
-                                                        return (
-                                                            <div key={tag} className='control'>
-                                                                <div className='tags are-small has-addons'>
-                                                                    <span className='tag is-info'>{tag}</span>
-                                                                    <a onClick={() => { this.removeTag(file.id, tag) }} className='tag is-delete'></a>
-                                                                </div>
-                                                            </div>
-                                                        )
-                                                    })}
-                                                    <div className='control'>
-                                                        <div className="tags are-small">
-                                                            <a className='tag is-small' onClick={() => {this.activateModal(file.id)}}>
-                                                                <span className="icon is-small">
-                                                                    <i className="fas fa-plus"></i>
-                                                                </span>
-                                                            </a>
-                                                        </div>
-                                                    </div>
-                                                </div>}
-                                                {file.tags === 'loading' && <div className='level'><div className='level-item'>
-                                                    <progress className="progress is-small is-info"/>
-                                                </div></div>}
-                                            </td>
-                                        </tr>
-                                    )
-                                })}
-                            </tfoot>
-
-                            {/* moved to end because tags were showing on top of header */}
-                            <thead>
-                                <tr>
-                                    <th width='30%'>File Name</th>
-                                    <th width='25%'>Date Added</th>
-                                    <th width='45%'>Fabels</th>
-                                </tr>
-                            </thead>
-
-                        </table>
+                        {files.length > 0 && 
+                            <FileTable files={files} activateModal={this.activateModal} removeTag={this.removeTag} openFile={this.openFile} />
+                        }
+                        {files.length === 0 &&
+                            <article class="message is-medium">
+                                <div class="message-header">
+                                    Looks like there aren't any files yet.
+                                </div>
+                                <div class="message-body">
+                                    You can add one by clicking Add Files on the top right or just download something from Chrome!
+                                </div>
+                            </article>
+                        }
                     </div>
                 </div>
                 <Modal active={this.state.modal.active} close={this.closeModal}>
