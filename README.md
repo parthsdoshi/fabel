@@ -15,4 +15,7 @@ User can train the program as it indexes their files.
 5. This will load the Bert model and creates a REST API around it to respond to external requests.
 6. Next, edit `app/server.py` and change the value of `BERT_SERVER` to the appropriate ip address and port.
 7. Finally, navigate to `./app` and run `python3 main.py`. This will launch the frontend.
-8. Drag and drop the chrome extension under `./chrome_extension/dist` in to chrome which will allow us to automatically run downloaded documents through the app and tag them.
+8. Download the chrome extension under `./chrome_extension/src` in to chrome which will allow us to automatically run downloaded documents through the app and tag them.
+* Open the Extension Management page by navigating to chrome://extensions.
+* Enable Developer Mode by clicking the toggle switch next to Developer mode.
+* Click the LOAD UNPACKED button and select the extension directory.
