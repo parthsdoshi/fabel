@@ -1,5 +1,8 @@
 # Fabel
 
+## Demo video
+https://www.youtube.com/watch?v=L-01TIbkgkE
+
 ## Team members
 Parth Doshi (parthsdoshi), Max Lin (maxlincode)
 
