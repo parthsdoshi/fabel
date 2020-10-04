@@ -1,5 +1,5 @@
 cefpython3==66.0
-nltk==3.4.1
+nltk==3.4.5
 requests==2.21.0
 pywebview==2.4
 Flask_SocketIO==3.3.2
