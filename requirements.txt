@@ -5,7 +5,7 @@ pywebview==2.4
 Flask_SocketIO==3.3.2
 Flask==1.0.2
 html2text==2018.1.9
-numpy==1.15.4
+numpy==1.22.0
 tensorflow==1.15.4
 tika==1.19
 scikit_learn==0.20.3
